@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: avs-legitimacao-service
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao-service
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: avs-legitimacao-service
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: avs-legitimacao-service
+        tier: backend
+    spec:
+      containers:
+        - name: avs-legitimacao-service
+          image: ${IMAGE}
+          imagePullPolicy: Always
+          env:
+            - name: SERVER_PORT
+              value: "3001"
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /avs-legitimacao-service
+            - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+              value: health,info
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+            - name: MANAGEMENT_SERVER_PORT
+              value: "3001"
+          envFrom:
+            - configMapRef:
+                name: produtizacao-firebase-rt
+            - secretRef:
+                name: produtizacao-firebase
+          ports:
+            - name: http
+              containerPort: 3001
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /avs-legitimacao-service/actuator/health
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /avs-legitimacao-service/actuator/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: avs-legitimacao-service
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao-service
+    tier: backend
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3001
+      protocol: TCP
+  selector:
+    app: avs-legitimacao-service
+    tier: backend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: avs-legitimacao-service
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao-service
+    tier: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: avs-legitimacao-service
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue
+          averageValue: 750m
