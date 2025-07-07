@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: avs-legitimacao
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: avs-legitimacao
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: avs-legitimacao
+        tier: frontend
+    spec:
+      containers:
+        - name: avs-legitimacao
+          image: imagem-front-avs
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: avs-legitimacao
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao
+    tier: frontend
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app: avs-legitimacao
+    tier: frontend
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: avs-legitimacao
+  namespace: deploylegitimacao
+  labels:
+    app: avs-legitimacao
+    tier: frontend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: avs-legitimacao
+  minReplicas: 1
+  maxReplicas: 1
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: AverageValue
+          averageValue: 750m
